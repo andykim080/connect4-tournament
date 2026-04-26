@@ -14,6 +14,7 @@ import os
 import sys
 import time
 import threading
+import webbrowser
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..'))
@@ -248,6 +249,10 @@ def boot() -> None:
 
 if __name__ == '__main__':
     boot()
+    # Open browser tab once the server is actually accepting connections.
+    # Use WERKZEUG_RUN_MAIN guard so the reloader (if ever enabled) doesn't double-open.
+    if not os.environ.get('WERKZEUG_RUN_MAIN'):
+        threading.Timer(1.0, lambda: webbrowser.open('http://127.0.0.1:5050')).start()
     # threaded=True is fine — LOCK serializes TF inference + state mutation.
     # Port 5050 to dodge macOS AirPlay Receiver on 5000.
     app.run(host='127.0.0.1', port=5050, debug=False, threaded=True)
