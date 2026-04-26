@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect 4 — Tournament</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --press: 'Press Start 2P', monospace;
+  --body: 'Outfit', sans-serif;
+  --bg-1: #5da9d9;
+  --bg-2: #a4d3ec;
+  --bg-3: #cce8f5;
+  --card: rgba(255, 255, 255, 0.85);
+  --card-strong: rgba(255, 255, 255, 0.95);
+  --card-border: rgba(255, 255, 255, 0.55);
+  --header-1: #1f2d3d;
+  --header-2: #2c3e50;
+  --orange-1: #e67e22;
+  --orange-2: #d35400;
+  --orange-3: #bf4b00;
+  --text-1: #1f2d3d;
+  --text-2: #4a5b6e;
+  --text-muted: #7f8c8d;
+  --board-1: #1a3a5c;
+  --board-2: #0f2a4a;
+  --board-shell: #0a1828;
+  --cell: #0d1f35;
+  --cell-rim: #06111e;
+  --piece-x-1: #ff6259;
+  --piece-x-2: #b03020;
+  --piece-o-1: #ffe04d;
+  --piece-o-2: #b88d00;
+  --win: #ff9500;
+  --green: #27ae60;
+  --red: #e74c3c;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  font-family: var(--body);
+  color: var(--text-1);
+  min-height: 100vh;
+}
+html {
+  background:
+    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 40%, var(--bg-3) 100%);
+}
+/* Pixel-art skyline anchored to bottom of viewport, behind everything. */
+body::before {
+  content: "";
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: min(60vh, 70vw);
+  background: url('/static/background.jpeg') center bottom / 100% 100% no-repeat;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  pointer-events: none;
+  z-index: -1;
+}
+body { padding: 24px; position: relative; }
+
+main {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+/* ---- Header ---- */
+.header {
+  background: linear-gradient(135deg, var(--header-1), var(--header-2));
+  border-radius: 22px;
+  padding: 26px 28px;
+  color: white;
+  text-align: center;
+  box-shadow: 0 14px 40px rgba(15, 30, 50, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+.header::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    90deg, transparent 0 14px, rgba(255,255,255,0.025) 14px 15px);
+  pointer-events: none;
+}
+.header h1 {
+  font-family: var(--press);
+  font-size: 18px;
+  letter-spacing: 2px;
+  margin-bottom: 10px;
+}
+.header .sub {
+  font-family: var(--body);
+  font-weight: 500;
+  font-size: 14px;
+  opacity: 0.85;
+  letter-spacing: 1px;
+}
+.header .config-pill {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 6px 14px;
+  background: rgba(230, 126, 34, 0.18);
+  border: 1px solid rgba(230, 126, 34, 0.45);
+  border-radius: 999px;
+  font-family: var(--press);
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: #ffd9b3;
+}
+
+/* ---- Cards ---- */
+.card {
+  background: var(--card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--card-border);
+  border-radius: 22px;
+  padding: 22px 24px;
+  box-shadow: 0 10px 30px rgba(15, 30, 50, 0.10);
+}
+.card h2 {
+  font-family: var(--press);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--orange-2);
+  margin-bottom: 14px;
+}
+
+/* ---- Top row: settings + status ---- */
+.top-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 18px;
+}
+@media (max-width: 880px) { .top-row { grid-template-columns: 1fr; } }
+
+/* Settings — JS-managed pills (no real <input type=radio>, see script). */
+.radio-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.radio-pill {
+  flex: 1 1 auto;
+  min-width: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 2px solid #d6dde5;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-2);
+  background: rgba(255,255,255,0.6);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+  font-family: inherit;
+}
+.radio-pill .dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid currentColor; flex: 0 0 14px;
+}
+.radio-pill.x .dot { background: radial-gradient(circle at 30% 30%, var(--piece-x-1), var(--piece-x-2)); border-color: transparent; }
+.radio-pill.o .dot { background: radial-gradient(circle at 30% 30%, var(--piece-o-1), var(--piece-o-2)); border-color: transparent; }
+.radio-pill:hover:not(:disabled):not(.selected) { border-color: var(--orange-1); color: var(--orange-2); }
+.radio-pill.selected {
+  background: linear-gradient(135deg, var(--orange-1), var(--orange-2));
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 6px 16px rgba(230, 126, 34, 0.35);
+}
+.radio-pill:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn {
+  flex: 1;
+  min-width: 130px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: var(--body);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--orange-1), var(--orange-2));
+  color: white;
+  box-shadow: 0 6px 16px rgba(230, 126, 34, 0.35);
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, var(--orange-2), var(--orange-3));
+}
+.btn-secondary {
+  background: rgba(255,255,255,0.7);
+  border: 2px solid #d6dde5;
+  color: var(--text-2);
+}
+.btn-secondary:hover:not(:disabled) { border-color: var(--orange-1); color: var(--orange-2); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+/* Status card */
+.status-card { display: flex; flex-direction: column; justify-content: space-between; gap: 14px; }
+.turn-banner {
+  font-family: var(--press);
+  font-size: 14px;
+  letter-spacing: 2px;
+  padding: 16px;
+  text-align: center;
+  border-radius: 14px;
+  background: rgba(44, 62, 80, 0.08);
+  color: var(--text-1);
+  transition: all 0.25s ease;
+}
+.turn-banner.me { background: rgba(39, 174, 96, 0.15); color: #1c7d3f; }
+.turn-banner.opp { background: rgba(231, 76, 60, 0.13); color: #b03020; }
+.turn-banner.thinking {
+  background: linear-gradient(90deg,
+    rgba(230,126,34,0.22) 0%,
+    rgba(230,126,34,0.42) 50%,
+    rgba(230,126,34,0.22) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  color: var(--orange-3);
+}
+.turn-banner.over { background: rgba(15, 30, 50, 0.88); color: white; }
+@keyframes shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+.versus {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--press);
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--text-2);
+}
+.versus .chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 12px;
+  background: rgba(255,255,255,0.6);
+  border: 1px solid rgba(15,30,50,0.08);
+}
+.versus .chip .dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+.versus .chip.x .dot { background: radial-gradient(circle at 30% 30%, var(--piece-x-1), var(--piece-x-2)); }
+.versus .chip.o .dot { background: radial-gradient(circle at 30% 30%, var(--piece-o-1), var(--piece-o-2)); }
+.versus .chip.me { outline: 2px solid var(--green); outline-offset: 2px; }
+
+/* ---- Board ---- */
+.board-card { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 22px; }
+
+.drop-row {
+  display: grid;
+  grid-template-columns: repeat(7, 64px);
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.drop-btn {
+  width: 64px; height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--orange-1), var(--orange-2));
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(230, 126, 34, 0.3);
+  transition: all 0.18s ease;
+}
+.drop-btn:hover:not(:disabled) {
+  transform: translateY(2px);
+  background: linear-gradient(135deg, var(--orange-2), var(--orange-3));
+}
+.drop-btn:disabled {
+  background: #4a6a8a;
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.board-shell {
+  background: linear-gradient(145deg, var(--board-1), var(--board-2));
+  border: 4px solid var(--board-shell);
+  border-radius: 18px;
+  padding: 12px;
+  box-shadow:
+    inset 0 4px 14px rgba(0,0,0,0.5),
+    0 14px 30px rgba(15, 30, 50, 0.25);
+}
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 64px);
+  grid-template-rows: repeat(6, 64px);
+  gap: 8px;
+}
+.cell {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: var(--cell);
+  box-shadow:
+    inset 0 4px 8px rgba(0,0,0,0.6),
+    inset 0 -2px 4px rgba(255,255,255,0.04);
+  position: relative;
+}
+.cell.x {
+  background: radial-gradient(circle at 32% 30%, var(--piece-x-1), var(--piece-x-2));
+  box-shadow:
+    inset 0 -3px 6px rgba(0,0,0,0.35),
+    inset 0 3px 6px rgba(255,255,255,0.18),
+    0 0 18px rgba(255, 90, 80, 0.35);
+}
+.cell.o {
+  background: radial-gradient(circle at 32% 30%, var(--piece-o-1), var(--piece-o-2));
+  box-shadow:
+    inset 0 -3px 6px rgba(0,0,0,0.35),
+    inset 0 3px 6px rgba(255,255,255,0.25),
+    0 0 18px rgba(255, 220, 60, 0.4);
+}
+.cell.win {
+  outline: 3px solid var(--win);
+  outline-offset: -2px;
+  animation: winpulse 1.1s ease-in-out infinite;
+}
+@keyframes winpulse {
+  0%, 100% { box-shadow: 0 0 8px var(--win), 0 0 18px rgba(255,149,0,0.5); }
+  50%      { box-shadow: 0 0 22px var(--win), 0 0 40px rgba(255,149,0,0.7); }
+}
+.cell.fresh {
+  animation: dropin 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes dropin {
+  0%   { transform: translateY(-380px); opacity: 0; }
+  60%  { transform: translateY(8px); opacity: 1; }
+  80%  { transform: translateY(-3px); }
+  100% { transform: translateY(0); }
+}
+
+.move-counter {
+  font-family: var(--press);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* ---- Info row ---- */
+.info-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 18px;
+}
+@media (max-width: 880px) { .info-row { grid-template-columns: 1fr; } }
+
+.last-move-card .empty-state {
+  font-style: italic;
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+.last-move-info { display: grid; gap: 12px; }
+.last-move-info .row { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.last-move-info .label {
+  font-family: var(--press);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.last-move-info .value {
+  font-weight: 700;
+  color: var(--text-1);
+  font-size: 16px;
+}
+.path-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--press);
+  font-size: 9px;
+  letter-spacing: 1px;
+  background: rgba(44,62,80,0.08);
+  color: var(--text-1);
+}
+.path-pill.mcts    { background: rgba(52,152,219,0.18); color: #1f6fa8; }
+.path-pill.endgame { background: rgba(155,89,182,0.18); color: #6c3483; }
+.path-pill.own_win { background: rgba(39,174,96,0.18);  color: #1c7d3f; }
+.path-pill.block   { background: rgba(241,196,15,0.22); color: #8b6500; }
+.path-pill.fallback{ background: rgba(231,76,60,0.18);  color: #b03020; }
+
+.visits {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.visits .v {
+  padding: 6px 10px;
+  background: rgba(15,30,50,0.06);
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 600;
+}
+.visits .v:first-child { background: rgba(39,174,96,0.18); color: #1c7d3f; }
+
+.elapsed-warn { color: var(--red); font-weight: 800; }
+
+/* History */
+.history-card { display: flex; flex-direction: column; }
+.history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.history-list {
+  max-height: 280px;
+  overflow-y: auto;
+  border-radius: 12px;
+  background: rgba(15,30,50,0.04);
+  padding: 8px;
+}
+.history-row {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 9px;
+  font-size: 14px;
+}
+.history-row + .history-row { margin-top: 2px; }
+.history-row .n { font-family: var(--press); font-size: 9px; color: var(--text-muted); }
+.history-row .who { font-weight: 700; display: inline-flex; align-items: center; gap: 8px; }
+.history-row .who .dot { width: 12px; height: 12px; border-radius: 50%; }
+.history-row .who.x .dot { background: radial-gradient(circle at 30% 30%, var(--piece-x-1), var(--piece-x-2)); }
+.history-row .who.o .dot { background: radial-gradient(circle at 30% 30%, var(--piece-o-1), var(--piece-o-2)); }
+.history-row .col { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 600; color: var(--text-2); }
+.history-row.mine { background: rgba(39,174,96,0.10); }
+.history-row.theirs { background: rgba(231,76,60,0.07); }
+.history-empty { padding: 24px; text-align: center; color: var(--text-muted); font-style: italic; }
+
+/* ---- Game-over overlay ---- */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(15, 30, 50, 0.55);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 50;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.overlay.show { opacity: 1; pointer-events: auto; }
+.overlay-card {
+  background: var(--card-strong);
+  border-radius: 24px;
+  padding: 36px 40px;
+  text-align: center;
+  max-width: 400px;
+  box-shadow: 0 30px 70px rgba(15,30,50,0.45);
+  transform: translateY(10px);
+  transition: transform 0.3s ease;
+  position: relative;
+}
+.overlay-close {
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(15,30,50,0.08);
+  color: var(--text-1);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+.overlay-close:hover { background: rgba(15,30,50,0.18); transform: scale(1.05); }
+.overlay.show .overlay-card { transform: translateY(0); }
+.overlay-card h2 {
+  font-family: var(--press);
+  font-size: 18px;
+  letter-spacing: 2px;
+  margin-bottom: 14px;
+}
+.overlay-card.win h2 { color: var(--green); }
+.overlay-card.lose h2 { color: var(--red); }
+.overlay-card.tie h2 { color: var(--orange-2); }
+.overlay-card p { font-size: 14px; color: var(--text-2); margin-bottom: 22px; }
+.overlay-img {
+  width: 220px;
+  height: 220px;
+  border-radius: 18px;
+  object-fit: cover;
+  margin: 0 auto 18px;
+  display: block;
+  box-shadow: 0 10px 24px rgba(15,30,50,0.25);
+}
+.overlay-card.win  .overlay-img { box-shadow: 0 10px 24px rgba(39,174,96,0.45); }
+.overlay-card.lose .overlay-img { box-shadow: 0 10px 24px rgba(231,76,60,0.45); }
+.overlay-card.tie  .overlay-img { box-shadow: 0 10px 24px rgba(230,126,34,0.45); }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  background: rgba(15,30,50,0.92);
+  color: white;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.3);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+  z-index: 100;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.error { background: var(--red); }
+</style>
+</head>
+<body>
+
+<main>
+  <header class="header">
+    <h1>CONNECT 4 — TOURNAMENT</h1>
+    <div class="sub">RL Agent · MCTS + Endgame · pg_final prior</div>
+    <div class="config-pill" id="config-pill">LOADING…</div>
+  </header>
+
+  <section class="top-row">
+    <div class="card">
+      <h2>SETUP</h2>
+      <div class="radio-row">
+        <button type="button" class="radio-pill x selected" id="rb-first" data-color="plus">
+          <span class="dot"></span> AGENT FIRST (X)
+        </button>
+        <button type="button" class="radio-pill o" id="rb-second" data-color="minus">
+          <span class="dot"></span> AGENT SECOND (O)
+        </button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-new">NEW GAME</button>
+        <button class="btn btn-secondary" id="btn-undo" disabled>UNDO</button>
+      </div>
+    </div>
+
+    <div class="card status-card">
+      <h2>STATUS</h2>
+      <div class="turn-banner" id="turn-banner">PRESS NEW GAME</div>
+      <div class="versus">
+        <div class="chip x" id="chip-x"><span class="dot"></span><span>X</span></div>
+        <span style="opacity:0.5;">vs</span>
+        <div class="chip o" id="chip-o"><span class="dot"></span><span>O</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card board-card">
+    <div class="drop-row" id="drop-row"></div>
+    <div class="board-shell"><div class="board-grid" id="board"></div></div>
+    <div class="move-counter" id="move-counter">MOVE —</div>
+  </section>
+
+  <section class="info-row">
+    <div class="card last-move-card">
+      <h2>LAST AGENT MOVE</h2>
+      <div id="last-move-content">
+        <div class="empty-state">No moves yet. Start a game.</div>
+      </div>
+    </div>
+
+    <div class="card history-card">
+      <div class="history-header">
+        <h2 style="margin:0;">MOVE HISTORY</h2>
+      </div>
+      <div class="history-list" id="history-list">
+        <div class="history-empty">No moves yet.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card" id="overlay-card">
+    <button class="overlay-close" id="overlay-close" aria-label="close">×</button>
+    <img class="overlay-img" id="overlay-img" alt="" hidden>
+    <h2 id="overlay-title">GAME OVER</h2>
+    <p id="overlay-msg"></p>
+    <button class="btn btn-primary" id="overlay-new">NEW GAME</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  Connect 4 Tournament UI — vanilla JS, fetches Flask backend
+// ============================================================
+const TIME_BUDGET = 8.0;   // seconds — flag agent moves slower than this
+
+const $ = (id) => document.getElementById(id);
+const board       = $('board');
+const dropRow     = $('drop-row');
+const banner      = $('turn-banner');
+const moveCounter = $('move-counter');
+const lastMoveEl  = $('last-move-content');
+const historyEl   = $('history-list');
+const undoBtn     = $('btn-undo');
+const newBtn      = $('btn-new');
+const overlay     = $('overlay');
+const overlayTitle= $('overlay-title');
+const overlayMsg  = $('overlay-msg');
+const overlayNew  = $('overlay-new');
+const overlayCard = $('overlay-card');
+const chipX       = $('chip-x');
+const chipO       = $('chip-o');
+const configPill  = $('config-pill');
+const toast       = $('toast');
+const rbFirst     = $('rb-first');
+const rbSecond    = $('rb-second');
+
+let state = null;
+let prevBoard = null;     // for fresh-piece animation
+let busy = false;         // disable inputs during fetches
+let selectedColor = 'plus';   // 'plus' = agent first (X), 'minus' = agent second (O)
+let overlayDismissed = false; // user closed the game-over overlay to view board
+
+function setSelectedColor(c) {
+  selectedColor = c;
+  rbFirst.classList.toggle('selected',  c === 'plus');
+  rbSecond.classList.toggle('selected', c === 'minus');
+}
+rbFirst.addEventListener('click',  () => { if (!rbFirst.disabled)  setSelectedColor('plus');  });
+rbSecond.addEventListener('click', () => { if (!rbSecond.disabled) setSelectedColor('minus'); });
+
+// --- Build static DOM (drop buttons + 42 cells) ---
+for (let c = 0; c < 7; c++) {
+  const b = document.createElement('button');
+  b.className = 'drop-btn';
+  b.dataset.col = c;
+  b.textContent = '▼';
+  b.addEventListener('click', () => onColumnClick(c));
+  dropRow.appendChild(b);
+}
+for (let r = 0; r < 6; r++) {
+  for (let c = 0; c < 7; c++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.dataset.r = r;
+    cell.dataset.c = c;
+    board.appendChild(cell);
+  }
+}
+
+// --- Networking ---
+async function api(method, path, body) {
+  busy = true;
+  syncControlsToBusy();
+  try {
+    const res = await fetch(path, {
+      method,
+      headers: body ? {'Content-Type': 'application/json'} : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || ('HTTP ' + res.status), true);
+      return null;
+    }
+    return data;
+  } catch (e) {
+    showToast('Network error: ' + e.message, true);
+    return null;
+  } finally {
+    busy = false;
+    syncControlsToBusy();
+  }
+}
+
+async function refresh()         { return apply(await api('GET', '/state')); }
+async function newGame(myColor)  { return apply(await api('POST', '/new_game', {my_color: myColor})); }
+async function agentMove()       { return apply(await api('POST', '/agent_move')); }
+async function opponentMove(col) { return apply(await api('POST', '/opponent_move', {col})); }
+async function doUndo()          { return apply(await api('POST', '/undo')); }
+
+// --- Apply state response ---
+async function apply(data) {
+  if (!data) return;
+  state = data;
+  render();
+  if (state.initialized && !state.game_over &&
+      state.turn_color === state.my_color) {
+    // Agent's turn — auto-play
+    setBannerThinking();
+    await agentMove();
+  }
+}
+
+// --- Render ---
+function render() {
+  if (!state) return;
+
+  // Config pill
+  if (state.config) {
+    configPill.textContent =
+      `MCTS · ${state.config.n_sims} SIMS · C=${state.config.c_puct} · DEPTH ${state.config.endgame_depth}`;
+  }
+
+  // Versus chip highlighting based on my_color
+  chipX.classList.toggle('me', state.my_color === 'plus');
+  chipO.classList.toggle('me', state.my_color === 'minus');
+
+  // Board cells
+  const newBoard = state.initialized ? state.board : Array.from({length: 6}, () => Array(7).fill(0));
+  const winSet = new Set((state.win_cells || []).map(([r, c]) => r + ',' + c));
+  for (let r = 0; r < 6; r++) {
+    for (let c = 0; c < 7; c++) {
+      const cell = board.children[r * 7 + c];
+      const v = newBoard[r][c];
+      cell.classList.remove('x', 'o', 'win', 'fresh');
+      if (v === 1)  cell.classList.add('x');
+      if (v === -1) cell.classList.add('o');
+      const wasEmpty = !prevBoard || prevBoard[r][c] === 0;
+      if (v !== 0 && wasEmpty) cell.classList.add('fresh');
+      if (winSet.has(r + ',' + c)) cell.classList.add('win');
+    }
+  }
+  prevBoard = newBoard.map(row => [...row]);
+
+  // Drop buttons
+  const legal = new Set(state.legal_cols || []);
+  const opponentsTurn = state.initialized && !state.game_over &&
+                        state.turn_color !== state.my_color;
+  for (let c = 0; c < 7; c++) {
+    dropRow.children[c].disabled = !(opponentsTurn && legal.has(c)) || busy;
+  }
+
+  // Banner
+  if (!state.initialized) {
+    banner.className = 'turn-banner';
+    banner.textContent = 'PRESS NEW GAME';
+  } else if (state.game_over) {
+    // Backend's "me" = the agent. Web UI POV is the human, so flip:
+    // agent winning means the human player loses.
+    banner.className = 'turn-banner over';
+    if (state.winner === 'me') banner.textContent = 'YOU LOSE';
+    else if (state.winner === 'opponent') banner.textContent = 'YOU WIN';
+    else banner.textContent = 'DRAW';
+  } else if (state.turn_color === state.my_color) {
+    banner.className = 'turn-banner thinking';
+    banner.textContent = 'AGENT THINKING…';
+  } else {
+    banner.className = 'turn-banner opp';
+    banner.textContent = "OPPONENT'S TURN — ENTER COLUMN";
+  }
+
+  // Move counter
+  moveCounter.textContent = state.initialized
+    ? `MOVE ${state.move_number}${state.game_over ? ' — FINAL' : ''}`
+    : 'MOVE —';
+
+  // Undo button
+  undoBtn.disabled = busy || !state.initialized || (state.history || []).length === 0;
+
+  // Disable color pills mid-game (must press New Game to switch)
+  const lockSetup = state.initialized && (state.history || []).length > 0 && !state.game_over;
+  rbFirst.disabled = lockSetup || busy;
+  rbSecond.disabled = lockSetup || busy;
+  // Reflect current my_color when a game is in progress
+  if (state.initialized) {
+    setSelectedColor(state.my_color === 'plus' ? 'plus' : 'minus');
+  }
+
+  // Last agent move
+  renderLastMove();
+  // History
+  renderHistory();
+  // Overlay
+  renderOverlay();
+}
+
+function setBannerThinking() {
+  banner.className = 'turn-banner thinking';
+  banner.textContent = 'AGENT THINKING…';
+}
+
+function renderLastMove() {
+  const lm = state && state.last_agent_move;
+  if (!lm) {
+    lastMoveEl.innerHTML = '<div class="empty-state">No agent moves yet.</div>';
+    return;
+  }
+  const path = lm.path || 'mcts';
+  const pathClass = path.split(' ')[0].replace(/[^a-z_]/gi, '');
+  const elapsedClass = lm.elapsed > TIME_BUDGET ? 'elapsed-warn' : '';
+  const visitsHtml = (lm.visits && lm.visits.length)
+    ? `<div class="visits">${lm.visits.map(v => `<span class="v">col ${v.col} · ${v.n}</span>`).join('')}</div>`
+    : '<div class="empty-state" style="margin-top:4px;">no visit data (tactical override)</div>';
+  lastMoveEl.innerHTML = `
+    <div class="last-move-info">
+      <div class="row"><span class="label">Column</span><span class="value">${lm.col}</span></div>
+      <div class="row"><span class="label">Decision</span><span class="path-pill ${pathClass}">${path}</span></div>
+      <div class="row"><span class="label">Elapsed</span><span class="value ${elapsedClass}">${lm.elapsed.toFixed(1)}s</span></div>
+      <div>
+        <div class="label" style="margin-bottom:6px;">Top 3 visits</div>
+        ${visitsHtml}
+      </div>
+    </div>`;
+}
+
+function renderHistory() {
+  const h = (state && state.history) || [];
+  if (h.length === 0) {
+    historyEl.innerHTML = '<div class="history-empty">No moves yet.</div>';
+    return;
+  }
+  const myColor = state.my_color;
+  historyEl.innerHTML = h.map(m => {
+    const isMe = m.color === myColor;
+    const klass = isMe ? 'mine' : 'theirs';
+    const letter = m.color === 'plus' ? 'x' : 'o';
+    const name = isMe ? 'YOU' : 'OPPONENT';
+    return `
+      <div class="history-row ${klass}">
+        <span class="n">${m.n.toString().padStart(2, '0')}</span>
+        <span class="who ${letter}"><span class="dot"></span>${name}</span>
+        <span class="col">col ${m.col}</span>
+      </div>`;
+  }).join('');
+  // Auto-scroll to bottom
+  historyEl.scrollTop = historyEl.scrollHeight;
+}
+
+function renderOverlay() {
+  const overlayImg = $('overlay-img');
+  if (!state || !state.game_over || overlayDismissed) {
+    overlay.classList.remove('show');
+    return;
+  }
+  overlay.classList.add('show');
+  overlayCard.classList.remove('win', 'lose', 'tie');
+  // Backend's "me" = the agent; web UI POV is the human, so flip.
+  let imgSrc = null;
+  if (state.winner === 'me') {            // agent wins → human loses
+    overlayCard.classList.add('lose');
+    overlayTitle.textContent = 'YOU LOSE';
+    overlayMsg.textContent = 'Game saved to tournament_games/.';
+    imgSrc = '/static/lose.png';
+  } else if (state.winner === 'opponent') { // human wins
+    overlayCard.classList.add('win');
+    overlayTitle.textContent = 'YOU WIN';
+    overlayMsg.textContent = 'Game saved to tournament_games/.';
+    imgSrc = '/static/win.png';
+  } else {
+    overlayCard.classList.add('tie');
+    overlayTitle.textContent = 'DRAW';
+    overlayMsg.textContent = 'Game saved to tournament_games/.';
+    imgSrc = '/static/tie.png';
+  }
+  // Hide first; show only after the image actually loads.
+  overlayImg.hidden = true;
+  overlayImg.onload  = () => { overlayImg.hidden = false; };
+  overlayImg.onerror = () => { overlayImg.hidden = true;  };
+  overlayImg.src = imgSrc;
+}
+
+function syncControlsToBusy() {
+  // Light-touch — render() does the full sync; here we just disable
+  // anything that could fire double-requests during a fetch.
+  newBtn.disabled = busy;
+  overlayNew.disabled = busy;
+}
+
+function showToast(msg, isError) {
+  toast.textContent = msg;
+  toast.classList.toggle('error', !!isError);
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove('show'), 2400);
+}
+
+// --- Wiring ---
+async function onColumnClick(col) {
+  if (busy || !state || !state.initialized || state.game_over) return;
+  if (state.turn_color === state.my_color) return;     // not opponent's turn
+  await opponentMove(col);
+}
+
+async function onNewGame() {
+  overlayDismissed = false;
+  overlay.classList.remove('show');
+  await newGame(selectedColor);
+}
+
+newBtn.addEventListener('click', onNewGame);
+overlayNew.addEventListener('click', onNewGame);
+undoBtn.addEventListener('click', async () => { await doUndo(); });
+$('overlay-close').addEventListener('click', () => {
+  overlayDismissed = true;
+  overlay.classList.remove('show');
+});
+
+// Initial load
+refresh();
+</script>
+
+</body>
+</html>
