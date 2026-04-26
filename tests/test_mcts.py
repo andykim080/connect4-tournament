@@ -26,12 +26,13 @@ from mcts import mcts_move, _mcts_search, _expand, _rollout_value, _backup, Node
 
 
 # ---------------------------------------------------------------------------
-# Shared fixture: load ANDY_CNN once per session.
+# Shared fixture: load andy_pg_final once per session.
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope='session')
 def andy():
-    return ModelPlayer('ANDY_CNN')
+    here = os.path.dirname(__file__)
+    return ModelPlayer(os.path.abspath(os.path.join(here, '..', 'checkpoints', 'andy_pg_final.keras')))
 
 
 # ---------------------------------------------------------------------------
