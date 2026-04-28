@@ -640,6 +640,7 @@ const rbSecond    = $('rb-second');
 
 let state = null;
 let prevBoard = null;     // for fresh-piece animation
+let prevMyColor = null;   // detect game-color changes (NEW GAME) vs same-game renders
 let busy = false;         // disable inputs during fetches
 let selectedColor = 'plus';   // 'plus' = agent first (X), 'minus' = agent second (O)
 let overlayDismissed = false; // user closed the game-over overlay to view board
@@ -781,14 +782,17 @@ function render() {
   // Undo button
   undoBtn.disabled = busy || !state.initialized || (state.history || []).length === 0;
 
-  // Disable color pills mid-game (must press New Game to switch)
-  const lockSetup = state.initialized && (state.history || []).length > 0 && !state.game_over;
-  rbFirst.disabled = lockSetup || busy;
-  rbSecond.disabled = lockSetup || busy;
-  // Reflect current my_color when a game is in progress
-  if (state.initialized) {
+  // Pills only configure the NEXT new game — leave them clickable any time
+  // (don't disable mid-game, or the user gets locked into the current side).
+  rbFirst.disabled = busy;
+  rbSecond.disabled = busy;
+  // Sync pills to the current game's my_color only when it actually changes
+  // (i.e. on NEW GAME). Otherwise we'd wipe a manual pill click on every
+  // re-render mid-game.
+  if (state.initialized && state.my_color !== prevMyColor) {
     setSelectedColor(state.my_color === 'plus' ? 'plus' : 'minus');
   }
+  prevMyColor = state.initialized ? state.my_color : null;
 
   // Last agent move
   renderLastMove();
